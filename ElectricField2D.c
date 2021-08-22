@@ -5,142 +5,148 @@
 /* Program that calculates electric field gradients or electric field vector fields by reading
 data from a file and creating as many vector fields or gradients as there are charged particles and finally
 adds them together to form a single vector field or gradient, that is then written to a file.
-Version: 1.0b
-Date: 29/06/2021
+Version: 1.1
+Date: 22/08/2021
 */
 
-struct electric_field_point {
-    double x_pos, y_pos, e_x, e_y, e;
+struct electricFieldPoint {
+    double xPos, yPos, eX, eY, e;
 };
 
-struct charged_particle {
-    double x_pos, y_pos, charge;
+struct chargedParticle {
+    double xPos, yPos, charge;
 };
 
 const double M_0 = 4*M_PI*pow(10, -7);
 const double EPSILON_0 = 8.8541878128*pow(10, -12);
 
-struct electric_field_point calculate_electric_field_point(struct electric_field_point point, struct charged_particle particle, double relative_permittivity, double ignore_precision) {
+struct electricFieldPoint calculateElectricFieldPoint(struct electricFieldPoint point, struct chargedParticle particle, double relativePermittivity, double ignorePrecision) {
     double r_x, r_y, r;
-    r_x = fabs(point.x_pos - particle.x_pos);
-    r_y = fabs(point.y_pos - particle.y_pos);
+    r_x = fabs(point.xPos - particle.xPos);
+    r_y = fabs(point.yPos - particle.yPos);
     r = sqrt(r_x*r_x+r_y*r_y);
-    if(r<=ignore_precision) {
+    if(r<=ignorePrecision) {
         point.e = 0;
-        point.e_x = 0;
-        point.e_y = 0;
+        point.eX = 0;
+        point.eY = 0;
         return point;
     }
-    point.e = particle.charge/(4*M_PI*EPSILON_0*relative_permittivity*r*r);
+    point.e = particle.charge/(4*M_PI*EPSILON_0*relativePermittivity*r*r);
     double alpha = atanf(r_y/r_x);
-    point.e_x = fabs(point.e*cos(alpha));
-    point.e_y = fabs(point.e*sin(alpha));
-    if(point.x_pos<particle.x_pos&&particle.charge>0) {
-        point.e_x = -1*fabs(point.e_x);
+    point.eX = fabs(point.e*cos(alpha));
+    point.eY = fabs(point.e*sin(alpha));
+    if(point.xPos<particle.xPos&&particle.charge>0) {
+        point.eX = -1*fabs(point.eX);
     }
-    else if(point.x_pos>particle.x_pos&&particle.charge<0) {
-        point.e_x = -1*fabs(point.e_x);
+    else if(point.xPos>particle.xPos&&particle.charge<0) {
+        point.eX = -1*fabs(point.eX);
     }
-    if(point.y_pos<particle.y_pos&&particle.charge>0) {
-        point.e_y = -1*fabs(point.e_y);
+    if(point.yPos<particle.yPos&&particle.charge>0) {
+        point.eY = -1*fabs(point.eY);
     }
-    else if(point.y_pos>particle.y_pos&&particle.charge<0) {
-        point.e_y = -1*fabs(point.e_y);
+    else if(point.yPos>particle.yPos&&particle.charge<0) {
+        point.eY = -1*fabs(point.eY);
     }
     return point;
 };
 
-struct electric_field_point add_electric_fields(struct electric_field_point point_1, struct electric_field_point point_2) {
-    struct electric_field_point result_point;
-    result_point.x_pos = point_1.x_pos;
-    result_point.y_pos = point_1.y_pos;
-    result_point.e = point_1.e+point_2.e;
-    result_point.e_x = point_1.e_x+point_2.e_x;
-    result_point.e_y = point_1.e_y+point_2.e_y;
-    return result_point;
+struct electricFieldPoint addElectricFields(struct electricFieldPoint point1, struct electricFieldPoint point2) {
+    struct electricFieldPoint resultPoint;
+    resultPoint.xPos = point1.xPos;
+    resultPoint.yPos = point1.yPos;
+    resultPoint.e = point1.e+point2.e;
+    resultPoint.eX = point1.eX+point2.eX;
+    resultPoint.eY = point1.eY+point2.eY;
+    return resultPoint;
 };
 
 int main(int argc, char** argv) {
     int size, n;
-    double step, relative_permittivity, ignore_precision;
-    FILE *in_file, *out_file;
-    if(!(in_file = fopen(argv[1], "rb"))) {
-       perror(argv[1]);
+    double step, relativePermittivity, ignorePrecision;
+    if(!strcmp("-h", argv[1])) {
+        printf("You can view help at the GitHub page of this program:\n");
+        printf("https://github.com/TheNumber5/electric-field-2d\n");
+        printf("Version: v1.1\nDate: 22/08/2021");
+        return 0;
+    }
+    FILE *inputFile, *outputFile;
+    if(!(inputFile = fopen(argv[2], "rb"))) {
+       perror(argv[2]);
        return 0;
     }
-    in_file = fopen(argv[1], "rb");
-    out_file = fopen(argv[2], "wb");
-    fscanf(in_file, "%i %lf %lf %lf %i", &size, &step, &relative_permittivity, &ignore_precision, &n);
-    double current_position_x = -1*size*step, current_position_y = size*step;
-    struct electric_field_point electric_field_1[size*2+1][size*2+1], electric_field_2[size*2+1][size*2+1];
-    struct electric_field_point aux_field[size*2+1][size*2+1];
-    struct charged_particle particles[n];
+    inputFile = fopen(argv[2], "rb");
+    outputFile = fopen(argv[3], "wb");
+    fscanf(inputFile, "%i %lf %lf %lf %i", &size, &step, &relativePermittivity, &ignorePrecision, &n);
+    double currentPositionX = -1*size*step, currentPositionY = size*step;
+    struct electricFieldPoint electricField1[size*2+1][size*2+1], electricField2[size*2+1][size*2+1];
+    struct electricFieldPoint auxField[size*2+1][size*2+1];
+    struct chargedParticle particles[n];
     for(int i=0; i<n; i++) {
-        fscanf(in_file, "%lf %lf %lf", &particles[i].x_pos, &particles[i].y_pos, &particles[i].charge);
+        fscanf(inputFile, "%lf %lf %lf", &particles[i].xPos, &particles[i].yPos, &particles[i].charge);
     }
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            aux_field[j][i].x_pos = electric_field_2[j][i].x_pos = electric_field_1[j][i].x_pos = current_position_x;
-            aux_field[j][i].y_pos = electric_field_2[j][i].y_pos = electric_field_1[j][i].y_pos = current_position_y;
-            current_position_x += step;
+            auxField[j][i].xPos = electricField2[j][i].xPos = electricField1[j][i].xPos = currentPositionX;
+            auxField[j][i].yPos = electricField2[j][i].yPos = electricField1[j][i].yPos = currentPositionY;
+            currentPositionX += step;
         }
-        current_position_x = -1*size*step;
-        current_position_y -= step;
+        currentPositionX = -1*size*step;
+        currentPositionY -= step;
     }
     if(n==1) {
         for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            aux_field[j][i] = calculate_electric_field_point(aux_field[j][i], particles[0], relative_permittivity, ignore_precision);
+            auxField[j][i] = calculateElectricFieldPoint(auxField[j][i], particles[0], relativePermittivity, ignorePrecision);
         }
     }
     }
     else {
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            electric_field_1[j][i] = calculate_electric_field_point(electric_field_1[j][i], particles[0], relative_permittivity, ignore_precision);
-            electric_field_2[j][i] = calculate_electric_field_point(electric_field_2[j][i], particles[1], relative_permittivity, ignore_precision);
+            electricField1[j][i] = calculateElectricFieldPoint(electricField1[j][i], particles[0], relativePermittivity, ignorePrecision);
+            electricField2[j][i] = calculateElectricFieldPoint(electricField2[j][i], particles[1], relativePermittivity, ignorePrecision);
         }
     }
     for(int q=2; q<n+1; q++) {
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            aux_field[j][i] = add_electric_fields(electric_field_1[j][i], electric_field_2[j][i]);
+            auxField[j][i] = addElectricFields(electricField1[j][i], electricField2[j][i]);
         }
     }
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            electric_field_1[j][i].e = aux_field[j][i].e;
-            electric_field_1[j][i].e_x = aux_field[j][i].e_x;
-            electric_field_1[j][i].e_y = aux_field[j][i].e_y;
+            electricField1[j][i].e = auxField[j][i].e;
+            electricField1[j][i].eX = auxField[j][i].eX;
+            electricField1[j][i].eY = auxField[j][i].eY;
         }
     }
     for(int i=0; i<size*2+1; i++) {
         for(int j=0; j<size*2+1; j++) {
-            electric_field_2[j][i] = calculate_electric_field_point(electric_field_2[j][i], particles[q], relative_permittivity, ignore_precision);
+            electricField2[j][i] = calculateElectricFieldPoint(electricField2[j][i], particles[q], relativePermittivity, ignorePrecision);
         }
     }
     }
     }
-    if(!strcmp(argv[3], "-g")) {
+    if(!strcmp(argv[1], "-g")) {
     for(int i=0; i<size*2+1; i++) {
     for(int j=0; j<size*2+1; j++) {
-        fprintf(out_file, "%0.2lf %0.2lf %0.12lf\n", aux_field[j][i].x_pos, aux_field[j][i].y_pos, aux_field[j][i].e);
+        fprintf(outputFile, "%0.2lf %0.2lf %0.12lf\n", auxField[j][i].xPos, auxField[j][i].yPos, auxField[j][i].e);
     }
     }
-    printf("Electric field gradient written to %s successfully.", argv[2]);
+    printf("Electric field gradient written to %s successfully.", argv[3]);
     }
-    else if(!strcmp(argv[3], "-vf")) {
+    else if(!strcmp(argv[1], "-vf")) {
     for(int i=0; i<size*2+1; i++) {
     for(int j=0; j<size*2+1; j++) {
-        fprintf(out_file, "%0.2lf %0.2lf %0.12lf %0.12lf\n", aux_field[j][i].x_pos, aux_field[j][i].y_pos, aux_field[j][i].e_x, aux_field[j][i].e_y);
+        fprintf(outputFile, "%0.2lf %0.2lf %0.12lf %0.12lf\n", auxField[j][i].xPos, auxField[j][i].yPos, auxField[j][i].eX, auxField[j][i].eY);
     }
     }
-    printf("Electric vector field written to %s successfully.", argv[2]);
+    printf("Electric vector field written to %s successfully.", argv[3]);
     }
     else {
         printf("Unknown command.");
     }
-    fclose(in_file);
-    fclose(out_file);
+    fclose(inputFile);
+    fclose(outputFile);
 return 0;
 }
